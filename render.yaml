@@ -1,0 +1,79 @@
+services:
+  - type: web
+    name: ragflow-api
+    env: docker
+    dockerfilePath:./Dockerfile
+    dockerContext:.
+    # 确保端口与RAGFlow配置一致
+    envVars:
+      - key: SVR_HTTP_PORT
+        value: 9380
+      # 从Render的环境组中同步其他密钥
+      - fromGroup: ragflow-secrets
+    # 增加健康检查以确保服务正常
+    healthCheckPath: /v1/health
+    # 根据需要分配资源
+    plan: standard
+
+  - type: pserv
+    name: mysql
+    env: docker
+    image:
+      url: mysql:8.0.26
+    # 为MySQL数据创建持久化磁盘
+    disk:
+      name: mysql-data
+      mountPath: /var/lib/mysql
+      sizeGB: 10
+    envVars:
+      - fromGroup: ragflow-secrets
+
+  - type: pserv
+    name: redis
+    env: docker
+    image:
+      url: redis:7.2.4-alpine
+    disk:
+      name: redis-data
+      mountPath: /data
+      sizeGB: 5
+    envVars:
+      - fromGroup: ragflow-secrets
+
+  - type: pserv
+    name: minio
+    env: docker
+    image:
+      url: minio/minio:RELEASE.2024-01-11T07-41-23Z
+    disk:
+      name: minio-data
+      mountPath: /data
+      sizeGB: 20
+    envVars:
+      - fromGroup: ragflow-secrets
+
+  - type: pserv
+    name: elasticsearch
+    env: docker
+    image:
+      url: elasticsearch:8.6.2
+    disk:
+      name: es-data
+      mountPath: /usr/share/elasticsearch/data
+      sizeGB: 20
+    envVars:
+      - fromGroup: ragflow-secrets
+
+# 定义一个环境组来管理所有服务的共享密钥
+envVarGroups:
+  - name: ragflow-secrets
+    envVars:
+      - key: MYSQL_ROOT_PASSWORD
+        generateValue: true # 让Render自动生成安全密码
+      - key: MYSQL_DATABASE
+        value: ragflow
+      - key: MINIO_ROOT_USER
+        value: minioadmin
+      - key: MINIO_ROOT_PASSWORD
+        generateValue: true
+      # 添加其他所有需要的环境变量...
